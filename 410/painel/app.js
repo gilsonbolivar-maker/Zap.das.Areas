@@ -17,7 +17,7 @@
    ———————————————————————————————————————————————————————————— */
 'use strict';
 
-const VERSAO = '1.3.0';   // precisa casar com a VERSAO do sw.js
+const VERSAO = '1.3.1';   // precisa casar com a VERSAO do sw.js
 
 const ROLE = document.body.dataset.role;          // 'painel' | 'sinal'
 const NOME_PAINEL = 'Zap410';                    // o que a pessoa lê; o papel interno continua "painel"
@@ -1124,6 +1124,9 @@ const ITENS_232 = {
   ]
 };
 let leituras = null, leiturasErro = '', leiturasEm = 0, leiturasTimer = null;
+// Quantas horas a tabela mostra fechada, e quais áreas o operador abriu por inteiro.
+const HORAS_INICIAIS = 3;
+const horasTodas = {};
 
 function numL(raw) {
   if (raw == null || raw === '') return null;
@@ -1138,7 +1141,13 @@ function fmtL(v) {
 }
 function virgula(n) { return (Math.round(n * 100) / 100).toFixed(2).replace('.', ','); }
 function horaDe(quando) { const m = String(quando || '').match(/\d{2}:\d{2}/); return m ? m[0] : ''; }
-function dataDe(quando) { const d = new Date(String(quando || '')); return isNaN(d) ? null : d.getTime(); }
+// "AAAA-MM-DD HH:MM[:SS]" (com espaço) vira data inválida no Safari do iPhone/iPad; lê os números na mão.
+function dataDe(quando) {
+  const m = String(quando || '').match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0)).getTime();
+  const d = new Date(String(quando || ''));
+  return isNaN(d) ? null : d.getTime();
+}
 function serieL(item, momentos) {
   const s = [];
   momentos.forEach(m => {
@@ -1158,28 +1167,6 @@ function tendencia(item, s) {
   if (horas != null && horas > 1 / 60) return { rumo, txt: seta + virgula(d / horas) + ' ' + item.unit + '/h' };
   return { rumo, txt: seta + virgula(d) + (ini.hora ? ' desde ' + ini.hora : '') };
 }
-function graficoL(item, s, rumo) {
-  if (s.length < 2) return '';
-  const vals = s.map(p => p.v);
-  let baixo = Math.min(...vals), alto = Math.max(...vals);
-  const minimo = (item.max - item.min) * 0.1;
-  if (alto - baixo < minimo) { const meio = (alto + baixo) / 2; baixo = meio - minimo / 2; alto = meio + minimo / 2; }
-  const perto = (alto - baixo) * 0.3 || 1;
-  [item.l, item.h].forEach(lim => {
-    if (lim != null && lim >= baixo - perto && lim <= alto + perto) { baixo = Math.min(baixo, lim); alto = Math.max(alto, lim); }
-  });
-  const vao = (alto - baixo) || 1, L = 300, A = 52, f = 8;
-  const y = v => (A - f - ((v - baixo) / vao) * (A - 2 * f)).toFixed(1);
-  const pts = s.map((p, i) => ({ x: (f + (i / (s.length - 1)) * (L - 2 * f)).toFixed(1), y: y(p.v) }));
-  const cor = rumo === 'parado' ? '#9C9388' : rumo === 'subindo' ? '#3fbf6f' : '#ff5a4e';
-  const risco = lim => (lim == null || lim < baixo || lim > alto) ? '' :
-    '<line x1="0" x2="' + L + '" y1="' + y(lim) + '" y2="' + y(lim) + '" stroke="#9C9388" stroke-dasharray="3 3" stroke-width="1"/>';
-  return '<svg viewBox="0 0 ' + L + ' ' + A + '" class="spark">' + risco(item.h) + risco(item.l) +
-    '<polyline fill="none" stroke="' + cor + '" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" points="' +
-    pts.map(p => p.x + ',' + p.y).join(' ') + '"/>' +
-    pts.map((p, i) => '<circle cx="' + p.x + '" cy="' + p.y + '" r="' + (i === pts.length - 1 ? 4.4 : 3) + '" fill="' + cor + '"/>').join('') +
-    '</svg>';
-}
 // Fora da faixa combinada (l a h): o cartão fica com a borda vermelha.
 const foraDaFaixa = (it, v) => v != null && ((it.l != null && v < it.l) || (it.h != null && v > it.h));
 
@@ -1194,16 +1181,24 @@ function blocoArea(a) {
     return '<div class="card-l' + (foraDaFaixa(it, ult) ? ' fora' : '') + '"><b>' + esc(it.eq.split(' ')[0]) + '</b>' +
       '<span class="eq-l">' + esc(it.eq.split(' ').slice(1).join(' ')) + ' · ' + esc(it.tag) + '</span>' +
       '<span class="val-l">' + (ult == null ? '—' : esc(fmtL(ult)) + ' <small>' + esc(it.unit) + '</small>') + '</span>' +
-      graficoL(it, s, t.rumo) + (t.txt ? '<span class="rumo-l ' + t.rumo + '">' + esc(t.txt) + '</span>' : '') +
+      (t.txt ? '<span class="rumo-l ' + t.rumo + '">' + esc(t.txt) + '</span>' : '') +
       (s.length ? '<span class="eq-l">leitura das ' + esc(s[s.length - 1].hora) + '</span>' : '') + '</div>';
   }).join('') + '</div>';
-  // Todas as coletas do turno: uma linha por horário (a mais nova em cima), uma coluna por tanque.
-  if (momentos.length) {
+  // Hora a hora do turno: tabela curta, a mais nova em cima, uma coluna por instrumento.
+  // Abre com as 3 últimas horas; "Ver todas" mostra o turno inteiro. Hora sem valor não aparece.
+  const comValor = momentos.filter(m => itens.some(it => numL(m.valores && m.valores[it.tag]) != null));
+  if (comValor.length) {
     const curto = it => it.eq.split(' ')[0];
-    h += '<h3 class="lab-l">Todas as leituras · ' + esc(a.area) + '</h3>' +
+    const todas = !!horasTodas[a.area];
+    const linhas = comValor.slice().reverse();
+    const mostrar = todas ? linhas : linhas.slice(0, HORAS_INICIAIS);
+    h += '<div class="horas-cab"><h3 class="lab-l">Hora a hora · ' + esc(a.area) + '</h3>' +
+      (linhas.length > HORAS_INICIAIS
+        ? '<button class="mini" data-horas="' + esc(a.area) + '">' + (todas ? 'Só as ' + HORAS_INICIAIS + ' últimas' : 'Ver todas (' + linhas.length + ')') + '</button>'
+        : '') + '</div>' +
       '<div class="tab-l horas-l"><table><thead><tr><th>Hora</th>' +
       itens.map(it => '<th>' + esc(curto(it)) + '<br><small>' + esc(it.unit) + '</small></th>').join('') + '</tr></thead><tbody>' +
-      momentos.slice().reverse().map(m => '<tr><td>' + esc(horaDe(m.quando) || m.quando) + '</td>' +
+      mostrar.map(m => '<tr><td>' + esc(horaDe(m.quando) || m.quando) + '</td>' +
         itens.map(it => {
           const v = m.valores && m.valores[it.tag];
           return '<td' + (foraDaFaixa(it, numL(v)) ? ' class="fora-l"' : '') + '>' + esc(fmtL(v)) + '</td>';
@@ -1253,6 +1248,9 @@ function desenharLeituras() {
   }
   const atual = $('#l232-atualizar');
   if (atual) atual.onclick = () => { atual.textContent = 'Buscando…'; puxarLeituras(); };
+  box.querySelectorAll('[data-horas]').forEach(b => {
+    b.onclick = () => { const ar = b.getAttribute('data-horas'); horasTodas[ar] = !horasTodas[ar]; desenharLeituras(); };
+  });
   const sair = $('#l232-sair');
   if (sair) sair.onclick = () => { write('l232-senha', ''); leituras = null; leiturasEm = 0; leiturasErro = ''; pararLeituras(); desenharLeituras(); };
 }
