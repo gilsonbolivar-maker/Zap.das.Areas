@@ -169,3 +169,7 @@ textarea::placeholder { color: rgba(243, 237, 228, .7); }
 .horas-l td:nth-child(2), .horas-l th:nth-child(2) { white-space: nowrap; min-width: 0; color: var(--fg); text-align: center; }
 .horas-l th small { font-weight: 400; }
 .horas-l td.fora-l { color: #ff5a4e; font-weight: 700; }
+.horas-cab { display: flex; align-items: center; justify-content: space-between; gap: .6rem; margin-top: 1.2rem; }
+.horas-cab .lab-l { margin: 0; }
+.horas-l { margin-top: .5rem; }
+.horas-l th, .horas-l td { padding: .3rem .45rem; }
