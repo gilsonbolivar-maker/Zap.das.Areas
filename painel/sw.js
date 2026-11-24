@@ -1,7 +1,7 @@
 /* Service worker do Zap Painel: só a moldura com as abas. Cada área (Zap232 e
    Zap410) tem o seu próprio service worker, na sua pasta. */
 'use strict';
-const VERSAO = '1.0.0';
+const VERSAO = '1.1.0';
 const CACHE = 'zappainel-v' + VERSAO;
 const ARQUIVOS = ['.', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 self.addEventListener('install', ev => {

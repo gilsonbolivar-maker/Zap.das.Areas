@@ -38,27 +38,27 @@ iframe.oculto { visibility:hidden; pointer-events:none; }
 <div class="topo">
   <div class="linha"><b>ZAP PAINEL</b><small id="versao"></small></div>
   <div class="abas" role="tablist">
-    <button class="aba" data-aba="232" role="tab">Zap232<span class="ponto"></span></button>
+    <button class="aba" data-aba="220" role="tab">Zap220<span class="ponto"></span></button>
     <button class="aba" data-aba="410" role="tab">Zap410<span class="ponto"></span></button>
   </div>
 </div>
 <div class="palco">
-  <iframe id="f232" data-area="232" title="Zap232" src="../../Oficina/sinal/painel/" allow="autoplay; wake-lock; clipboard-write; web-share"></iframe>
+  <iframe id="f220" data-area="220" title="Zap220" src="../../Oficina/220Sinal/" allow="autoplay; wake-lock; clipboard-write; web-share"></iframe>
   <iframe id="f410" data-area="410" title="Zap410" src="../410/painel/" allow="autoplay; wake-lock; clipboard-write; web-share"></iframe>
 </div>
 <script>
-/* Zap Painel: o Zap232 e o Zap410 lado a lado, cada um na sua aba.
+/* Zap Painel: o Zap220 (Oficina/220Sinal) e o Zap410 lado a lado, cada um na sua aba.
    Cada aba é o app da área inteiro, sem mudar nada nele: os dados e os
    alarmes de uma área não se misturam com os da outra. As duas ficam abertas
    juntas para continuar escutando; quando chega alarme numa aba escondida,
    o painel pula para ela e ela pisca. */
 'use strict';
-const VERSAO = '1.0.0';
+const VERSAO = '1.1.0';
 document.getElementById('versao').textContent = 'v' + VERSAO;
 const abas = [...document.querySelectorAll('[data-aba]')];
-const quadros = { '232': document.getElementById('f232'), '410': document.getElementById('f410') };
-let atual = '232';
-try { const g = localStorage.getItem('zappainel-aba'); if (g === '232' || g === '410') atual = g; } catch {}
+const quadros = { '220': document.getElementById('f220'), '410': document.getElementById('f410') };
+let atual = '220';
+try { const g = localStorage.getItem('zappainel-aba'); if (g === '220' || g === '410') atual = g; } catch {}
 
 function mostrar(area) {
   atual = area;
@@ -98,7 +98,7 @@ function vigiar(area) {
   };
   f.addEventListener('load', ligar);
 }
-vigiar('232');
+vigiar('220');
 vigiar('410');
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
