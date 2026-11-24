@@ -17,7 +17,7 @@
    ———————————————————————————————————————————————————————————— */
 'use strict';
 
-const VERSAO = '1.3.1';   // precisa casar com a VERSAO do sw.js
+const VERSAO = '1.3.2';   // precisa casar com a VERSAO do sw.js
 
 const ROLE = document.body.dataset.role;          // 'painel' | 'sinal'
 const NOME_PAINEL = 'Zap410';                    // o que a pessoa lê; o papel interno continua "painel"
@@ -65,7 +65,8 @@ const PEDIDOS = [
 
 // Dentro do APK Android, a página ganha window.SinalNativo: escuta com a tela
 // apagada, alarme do aparelho, salvar em Downloads e compartilhar.
-const nativo = window.SinalNativo || null;
+// Dentro de um quadro (Zap/220 ou Zap Painel), o alarme do aparelho é da área de fora: aqui não usa.
+const nativo = window.top === window ? (window.SinalNativo || null) : null;
 const APK = {
   sinal: 'https://github.com/gilsonbolivar-maker/Zap.das.Areas/releases/download/410-apk/aa410.apk',
   painel: 'https://github.com/gilsonbolivar-maker/Zap.das.Areas/releases/download/410-apk/zap410.apk'
@@ -1820,7 +1821,7 @@ function preencherVersao() {
  * WhatsApp, aba anônima, iPhone…). Some quando o app já está instalado.
  */
 let pedidoInstalar = null;
-const instaladoJa = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const instaladoJa = () => window.top !== window || matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 
 function faixaInstalar() {
   const el = $('#instalar');
