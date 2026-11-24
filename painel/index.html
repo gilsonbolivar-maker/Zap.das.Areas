@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#E10600">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Zap Painel">
+<title>Zap Painel</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+:root { --bg:#141210; --surface:#221F1B; --fg:#F3EDE4; --muted:#9C9388; --alert:#E10600; --line:#3A342C; }
+* { box-sizing: border-box; }
+html, body { margin:0; height:100%; background:var(--bg); color:var(--fg); font:16px/1.4 system-ui, sans-serif; }
+body { display:flex; flex-direction:column; height:100dvh; }
+.topo { padding: max(.5rem, env(safe-area-inset-top)) .6rem .5rem; background:var(--bg); border-bottom:4px solid var(--alert); }
+.linha { display:flex; align-items:center; gap:.6rem; }
+.linha b { font-size:1rem; letter-spacing:.04em; }
+.linha small { color:var(--muted); margin-left:auto; font-size:.8rem; }
+.abas { display:flex; gap:.4rem; margin-top:.4rem; padding:.3rem; border:1px solid var(--line); border-radius:1.1rem; background:var(--surface); }
+.aba { flex:1; min-height:3rem; border:0; border-radius:.8rem; background:transparent; color:var(--muted); font:650 1.05rem system-ui, sans-serif; position:relative; }
+.aba.on { background:var(--alert); color:var(--fg); }
+.aba.chamando:not(.on) { color:var(--fg); animation: pisca 1s infinite; }
+@keyframes pisca { 50% { background:#5a1512; } }
+.aba .ponto { position:absolute; top:.45rem; right:.6rem; width:.6rem; height:.6rem; border-radius:50%; background:var(--alert); display:none; }
+.aba.chamando .ponto { display:block; }
+.palco { position:relative; flex:1; }
+/* As duas áreas ficam abertas o tempo todo (para escutar); só uma aparece. */
+iframe { position:absolute; inset:0; width:100%; height:100%; border:0; background:var(--bg); }
+iframe.oculto { visibility:hidden; pointer-events:none; }
+</style>
+</head>
+<body>
+<div class="topo">
+  <div class="linha"><b>ZAP PAINEL</b><small id="versao"></small></div>
+  <div class="abas" role="tablist">
+    <button class="aba" data-aba="232" role="tab">Zap232<span class="ponto"></span></button>
+    <button class="aba" data-aba="410" role="tab">Zap410<span class="ponto"></span></button>
+  </div>
+</div>
+<div class="palco">
+  <iframe id="f232" data-area="232" title="Zap232" src="../../Oficina/sinal/painel/" allow="autoplay; wake-lock; clipboard-write; web-share"></iframe>
+  <iframe id="f410" data-area="410" title="Zap410" src="../410/painel/" allow="autoplay; wake-lock; clipboard-write; web-share"></iframe>
+</div>
+<script>
+/* Zap Painel: o Zap232 e o Zap410 lado a lado, cada um na sua aba.
+   Cada aba é o app da área inteiro, sem mudar nada nele: os dados e os
+   alarmes de uma área não se misturam com os da outra. As duas ficam abertas
+   juntas para continuar escutando; quando chega alarme numa aba escondida,
+   o painel pula para ela e ela pisca. */
+'use strict';
+const VERSAO = '1.0.0';
+document.getElementById('versao').textContent = 'v' + VERSAO;
+const abas = [...document.querySelectorAll('[data-aba]')];
+const quadros = { '232': document.getElementById('f232'), '410': document.getElementById('f410') };
+let atual = '232';
+try { const g = localStorage.getItem('zappainel-aba'); if (g === '232' || g === '410') atual = g; } catch {}
+
+function mostrar(area) {
+  atual = area;
+  try { localStorage.setItem('zappainel-aba', area); } catch {}
+  abas.forEach(b => {
+    b.classList.toggle('on', b.dataset.aba === area);
+    if (b.dataset.aba === area) b.classList.remove('chamando');
+  });
+  Object.entries(quadros).forEach(([a, f]) => f.classList.toggle('oculto', a !== area));
+}
+abas.forEach(b => b.onclick = () => mostrar(b.dataset.aba));
+mostrar(atual);
+
+/* Vigia a tela de alarme (#alarm) de cada área. Os apps estão no mesmo
+   endereço (gilsonbolivar-maker.github.io), então o painel consegue olhar
+   dentro deles sem que eles precisem mudar. */
+function vigiar(area) {
+  const f = quadros[area];
+  let obs = null;
+  const ligar = () => {
+    if (obs) obs.disconnect();
+    let doc;
+    try { doc = f.contentDocument; } catch { return; }
+    const el = doc && doc.getElementById('alarm');
+    if (!el) { setTimeout(ligar, 1000); return; }
+    const aoMudar = () => {
+      const tocando = !el.hidden;
+      const aba = abas.find(b => b.dataset.aba === area);
+      if (tocando) {
+        if (atual !== area) { aba.classList.add('chamando'); mostrar(area); }
+        if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+      }
+    };
+    obs = new MutationObserver(aoMudar);
+    obs.observe(el, { attributes: true, attributeFilter: ['hidden'] });
+    aoMudar();
+  };
+  f.addEventListener('load', ligar);
+}
+vigiar('232');
+vigiar('410');
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
