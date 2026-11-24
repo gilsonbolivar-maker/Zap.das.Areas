@@ -1,6 +1,6 @@
 # Compila os APKs do AA410 e do Zap410 (área 410) e publica em
-# https://github.com/gilsonbolivar-maker/Zap.das.areas/releases/download/410-apk/aa410.apk
-# https://github.com/gilsonbolivar-maker/Zap.das.areas/releases/download/410-apk/zap410.apk
+# https://github.com/gilsonbolivar-maker/Zap.das.Areas/releases/download/410-apk/aa410.apk
+# https://github.com/gilsonbolivar-maker/Zap.das.Areas/releases/download/410-apk/zap410.apk
 # Os APKs abrem a página do site; só precisa recompilar quando o código Android muda.
 name: APKs do AA410 e do Zap410
 

@@ -7,7 +7,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="gilsonbolivar-maker.github.io" android:pathPrefix="/Zap.das.areas/410/aa410/" />
+                <data android:scheme="https" android:host="gilsonbolivar-maker.github.io" android:pathPrefix="/Zap.das.Areas/410/aa410/" />
             </intent-filter>
         </activity>
     </application>

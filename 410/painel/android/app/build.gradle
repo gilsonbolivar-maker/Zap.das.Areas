@@ -25,15 +25,15 @@ android {
         sinal {
             dimension 'papel'
             applicationId 'io.github.gilsonbolivar.aa410'
-            buildConfigField 'String', 'ENDERECO', '"https://gilsonbolivar-maker.github.io/Zap.das.areas/410/aa410/"'
-            buildConfigField 'String', 'CAMINHO', '"/Zap.das.areas/410/aa410"'
+            buildConfigField 'String', 'ENDERECO', '"https://gilsonbolivar-maker.github.io/Zap.das.Areas/410/aa410/"'
+            buildConfigField 'String', 'CAMINHO', '"/Zap.das.Areas/410/aa410"'
             resValue 'string', 'app_name', 'AA410'
         }
         painel {
             dimension 'papel'
             applicationId 'io.github.gilsonbolivar.zap410'
-            buildConfigField 'String', 'ENDERECO', '"https://gilsonbolivar-maker.github.io/Zap.das.areas/410/painel/"'
-            buildConfigField 'String', 'CAMINHO', '"/Zap.das.areas/410/painel"'
+            buildConfigField 'String', 'ENDERECO', '"https://gilsonbolivar-maker.github.io/Zap.das.Areas/410/painel/"'
+            buildConfigField 'String', 'CAMINHO', '"/Zap.das.Areas/410/painel"'
             resValue 'string', 'app_name', 'Zap410'
         }
     }

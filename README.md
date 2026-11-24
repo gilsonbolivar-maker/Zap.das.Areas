@@ -7,8 +7,8 @@ Comunicação das áreas 410, 170 e 160. Cada área tem a sua pasta e o seu app,
 - `410/painel/android/` — os APKs `aa410.apk` e `zap410.apk` (workflow `apk-410.yml`).
 
 Endereços (GitHub Pages):
-- https://gilsonbolivar-maker.github.io/Zap.das.areas/410/painel/
-- https://gilsonbolivar-maker.github.io/Zap.das.areas/410/aa410/
+- https://gilsonbolivar-maker.github.io/Zap.das.Areas/410/painel/
+- https://gilsonbolivar-maker.github.io/Zap.das.Areas/410/aa410/
 
 ## Próximas áreas
 170 e 160: mesma receita, cada uma na sua pasta (`170/`, `160/`).
