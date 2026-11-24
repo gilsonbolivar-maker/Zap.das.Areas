@@ -1,0 +1,68 @@
+plugins {
+    id 'com.android.application'
+}
+
+/*
+ * Zap410: cópia do Android do Sinal232 para a área 410.
+ * Um projeto, dois apps: o AA410 (de cada operador) e o Zap410 (o seu).
+ * Os dois abrem a página do site numa WebView e ganham o que o navegador não
+ * tem: escutar com a tela apagada e tocar o alarme do aparelho.
+ */
+android {
+    namespace 'io.github.gilsonbolivar.sinal'
+    compileSdk 34
+
+    defaultConfig {
+        minSdk 24
+        targetSdk 34
+        // versionCode sobe a cada APK novo; versionName acompanha o app do site.
+        versionCode 1
+        versionName '1.4.0'
+    }
+
+    flavorDimensions 'papel'
+    productFlavors {
+        sinal {
+            dimension 'papel'
+            applicationId 'io.github.gilsonbolivar.aa410'
+            buildConfigField 'String', 'ENDERECO', '"https://gilsonbolivar-maker.github.io/Zap.das.areas/410/aa410/"'
+            buildConfigField 'String', 'CAMINHO', '"/Zap.das.areas/410/aa410"'
+            resValue 'string', 'app_name', 'AA410'
+        }
+        painel {
+            dimension 'papel'
+            applicationId 'io.github.gilsonbolivar.zap410'
+            buildConfigField 'String', 'ENDERECO', '"https://gilsonbolivar-maker.github.io/Zap.das.areas/410/painel/"'
+            buildConfigField 'String', 'CAMINHO', '"/Zap.das.areas/410/painel"'
+            resValue 'string', 'app_name', 'Zap410'
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    signingConfigs {
+        // Chave fixa: o APK novo instala por cima do antigo sem desinstalar.
+        // Ela NÃO fica no repositório (que é público): o workflow monta o arquivo
+        // a partir dos segredos SINAL_ASSINATURA e SINAL_SENHA do GitHub.
+        oficina {
+            storeFile file(System.getenv('SINAL_ASSINATURA_ARQUIVO') ?: '../assinatura.jks')
+            storePassword System.getenv('SINAL_SENHA') ?: ''
+            keyAlias 'sinal'
+            keyPassword System.getenv('SINAL_SENHA') ?: ''
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.oficina
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
