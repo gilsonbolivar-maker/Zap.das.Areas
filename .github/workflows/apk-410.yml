@@ -49,14 +49,19 @@ jobs:
             echo "tem=sim" >> "$GITHUB_OUTPUT"
           fi
 
-      # Sem os segredos, ainda compila (versão de teste) para conferir o código — mas não publica.
-      - name: Compilar só para conferir (sem a chave)
+      # Sem os segredos, compila a versão de teste (assinada com uma chave provisória)
+      # e publica assim mesmo, para já dar para instalar. Atenção: cada compilação
+      # de teste tem uma chave diferente, então para atualizar é preciso desinstalar
+      # antes. Com os segredos SINAL_ASSINATURA e SINAL_SENHA, sai a versão definitiva.
+      - name: Compilar versão de teste (sem a chave)
         if: steps.chave.outputs.tem == 'nao'
         working-directory: 410/painel/android
         run: |
           gradle --no-daemon assembleSinalDebug assemblePainelDebug
-          echo "::error::Compilou, mas faltam os segredos SINAL_ASSINATURA e SINAL_SENHA (Settings → Secrets and variables → Actions) para assinar e publicar."
-          exit 1
+          mkdir -p app/build/outputs/apk/sinal/release app/build/outputs/apk/painel/release
+          cp app/build/outputs/apk/sinal/debug/app-sinal-debug.apk app/build/outputs/apk/sinal/release/app-sinal-release.apk
+          cp app/build/outputs/apk/painel/debug/app-painel-debug.apk app/build/outputs/apk/painel/release/app-painel-release.apk
+          echo "::warning::Publicado como versão de teste: faltam os segredos SINAL_ASSINATURA e SINAL_SENHA."
 
       - name: Compilar
         if: steps.chave.outputs.tem == 'sim'
