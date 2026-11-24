@@ -17,7 +17,7 @@
    ———————————————————————————————————————————————————————————— */
 'use strict';
 
-const VERSAO = '1.0.1';   // precisa casar com a VERSAO do sw.js
+const VERSAO = '1.1.0';   // precisa casar com a VERSAO do sw.js
 
 const ROLE = document.body.dataset.role;          // 'painel' | 'sinal'
 const NOME_PAINEL = 'Zap410';                    // o que a pessoa lê; o papel interno continua "painel"
@@ -565,7 +565,8 @@ async function responder(chave, extra) {
 
 /** `destinos`: [{ chave, nome }] — uma pessoa, ou todas (PAINEL). */
 async function mandarAlarme(destinos, tone, pedido) {
-  const escrito = clean($('#recado') ? $('#recado').value : '', 80);
+  const campo = tone === 'resultado' ? $('#nota-resultado') : $('#recado');
+  const escrito = clean(campo ? campo.value : '', 80);
   // Pedido: o texto do botão vai na frente; o que estiver escrito no cartão vai junto.
   const note = pedido ? clean(pedido + (escrito ? ' · ' + escrito : ''), 80) : escrito;
   const who = myName();
@@ -583,6 +584,7 @@ async function mandarAlarme(destinos, tone, pedido) {
   for (const d of destinos) {
     const agora = Date.now();
     const msg = { id: crypto.randomUUID(), kind: 'alarme', tone, note, who, ts: agora, criado: agora };
+    if (tone === 'resultado' && areaDoEnvio) msg.area = areaDoEnvio;
     let anexo = null;
     if (preparado) {
       // Cada pessoa recebe o arquivo com um id próprio (o caminho é dela).
@@ -837,7 +839,7 @@ function receberFicha(msg, rota) {
   if (!f || !f.id) return;
   const r = entradaRecebendo(f.id, rota.chave);
   r.meta = { id: f.id, nome: clean(f.nome, 120) || 'arquivo', tipo: clean(f.tipo, 100), tamanho: +f.tamanho || 0, partes: +f.partes || 1, sha: String(f.sha || '') };
-  if (msg.tone === 'resultado') r.resultado = { quem: ROLE === 'painel' ? rota.nome : (clean(msg.who, 24) || NOME_PAINEL), nota: clean(msg.note, 80) };
+  if (msg.tone === 'resultado') r.resultado = { quem: ROLE === 'painel' ? rota.nome : (clean(msg.who, 24) || NOME_PAINEL), nota: clean(msg.note, 80), area: areaDe(msg) };
   r.alarme = msg.id;
   r.ultimo = Date.now();
   vigiarPartes(f.id);
@@ -880,7 +882,7 @@ async function conferirAnexo(id) {
   r.blob = new Blob([bytes], { type: r.meta.tipo || 'application/octet-stream' });
   r.partes.clear();
   guardarArquivo(r.meta, r.blob);
-  if (r.resultado) anotarResultado({ id: r.meta.id, dir: 'entrou', quem: r.resultado.quem, nota: r.resultado.nota, ts: Date.now() });
+  if (r.resultado) anotarResultado({ id: r.meta.id, dir: 'entrou', area: r.resultado.area, quem: r.resultado.quem, nota: r.resultado.nota, ts: Date.now() });
   responder(r.chave, { kind: 'anexo-ok', anexo: id });
   mostrarAnexo(id);
 }
@@ -1009,72 +1011,107 @@ function ligarAnexar() {
  * está escolhido (no Zap410) ou para o Zap410 (no AA410). As imagens mandadas
  * e recebidas ficam na galeria "Resultados" deste aparelho (as 20 mais novas).
  */
-const RESULTADOS_MAX = 20;
+const RESULTADOS_MAX = 40;
+// Áreas com resultado próprio. Resultado antigo sem área conta como 410.
+const AREAS_RESULTADO = ['410', '150'];
+const areaDe = x => AREAS_RESULTADO.includes(String(x && x.area)) ? String(x.area) : AREAS_RESULTADO[0];
 let destinosResultado = () => [];
+let areaDoEnvio = '';   // área do resultado que está saindo agora
 function listaResultados() { const l = read('resultados', []); return Array.isArray(l) ? l : []; }
 function anotarResultado(item) {
   write('resultados', [item].concat(listaResultados().filter(x => x.id !== item.id)).slice(0, RESULTADOS_MAX));
   desenharResultados();
 }
 function blocoResultados() {
-  return '<section class="resultados"><h3 class="pedidos-titulo">Resultados</h3>' +
-    '<button class="btn surface" type="button" id="mandar-resultado">📷 Mandar imagem de resultado</button>' +
+  return '<section class="resultados">' +
+    field('nota-resultado', 'Escrever junto (opcional)', { max: 80, ph: 'Ex.: amostra das 14h' }) +
     '<input type="file" id="arquivo-resultado" hidden>' +
     '<p id="resultado-estado" class="muted resultado-estado"></p>' +
-    '<div id="galeria" class="galeria"></div></section>';
+    AREAS_RESULTADO.map(a =>
+      '<h3 class="pedidos-titulo">Resultados · área ' + a + '</h3>' +
+      '<button class="btn surface" type="button" data-mandar-resultado="' + a + '">📷 Mandar resultado da ' + a + '</button>' +
+      '<div class="galeria" data-galeria="' + a + '"></div>').join('') +
+    '</section>';
 }
 function ligarResultados(destinos) {
   destinosResultado = () => destinos;
-  const bt = $('#mandar-resultado'), input = $('#arquivo-resultado');
-  if (!bt) return;
-  bt.onclick = () => {
-    if (!destinosResultado().length) { $('#resultado-estado').textContent = 'Escolha antes para quem vai, lá em cima.'; return; }
+  const input = $('#arquivo-resultado');
+  if (!input) return;
+  let area = AREAS_RESULTADO[0];
+  app.querySelectorAll('[data-mandar-resultado]').forEach(bt => bt.onclick = () => {
+    if (!destinosResultado().length) { $('#resultado-estado').textContent = 'Ainda não há ninguém para receber. Adicione pessoas na aba Contato.'; return; }
+    area = bt.dataset.mandarResultado;
     input.click();
-  };
+  });
   input.onchange = async () => {
     const f = input.files[0];
     input.value = '';
     if (!f) return;
-    if (!/^image\//.test(f.type)) { $('#resultado-estado').textContent = 'Escolha uma imagem (foto ou print).'; return; }
-    if (f.size > ANEXO_MAX) { $('#resultado-estado').textContent = 'A imagem tem ' + tamanhoBonito(f.size) + '. O limite é 2 MB.'; return; }
+    const estado = $('#resultado-estado');
+    if (!/^image\//.test(f.type)) { estado.textContent = 'Escolha uma imagem (foto ou print).'; return; }
+    if (f.size > ANEXO_MAX) { estado.textContent = 'A imagem tem ' + tamanhoBonito(f.size) + '. O limite é 2 MB.'; return; }
     unlock();
-    if (!myName()) { $('#resultado-estado').textContent = 'Escreva o seu nome antes.'; return; }
-    if (!bus || !bus.pronto()) { $('#resultado-estado').textContent = 'Ainda sem ligação com os servidores. Espere "Escuta ligada".'; return; }
+    if (!myName()) { estado.textContent = 'Escreva o seu nome antes.'; return; }
+    if (!bus || !bus.pronto()) { estado.textContent = 'Ainda sem ligação com os servidores. Espere "Escuta ligada".'; return; }
     const local = 'r-' + crypto.randomUUID();
     guardarArquivo({ id: local, nome: clean(f.name, 120) || 'resultado', tipo: f.type }, f);
     const ds = destinosResultado();
-    anotarResultado({ id: local, dir: 'saiu', quem: ds.length > 1 ? 'todos' : ds[0].nome, nota: clean($('#recado') ? $('#recado').value : '', 80), ts: Date.now() });
+    anotarResultado({ id: local, dir: 'saiu', area, quem: ds.length > 1 ? 'todos' : ds[0].nome, nota: clean($('#nota-resultado').value, 80), ts: Date.now() });
     anexoEscolhido = f;
-    $('#resultado-estado').textContent = 'Enviando…';
+    areaDoEnvio = area;
+    estado.textContent = 'Enviando o resultado da ' + area + '…';
     await mandarAlarme(ds, 'resultado');
-    $('#resultado-estado').textContent = 'Enviado. A entrega aparece no Histórico.';
+    areaDoEnvio = '';
+    $('#nota-resultado').value = '';
+    estado.textContent = 'Resultado da ' + area + ' enviado. A entrega aparece no Histórico.';
   };
   desenharResultados();
 }
 async function desenharResultados() {
-  const g = $('#galeria');
-  if (!g) return;
+  const galerias = app.querySelectorAll('[data-galeria]');
+  if (!galerias.length) return;
   const lista = listaResultados();
-  if (!lista.length) { g.innerHTML = '<p class="muted">Nenhum resultado ainda.</p>'; return; }
   const itens = await Promise.all(lista.map(async x => ({ x, a: await lerArquivo(x.id) })));
-  g.innerHTML = '';
-  itens.forEach(({ x, a }) => {
-    const fig = document.createElement('figure');
-    fig.className = 'resultado';
-    const hora = new Date(x.ts).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-    const legenda = (x.dir === 'saiu' ? 'Para ' : 'De ') + (x.quem || '?') + ' · ' + hora + (x.nota ? ' · ' + x.nota : '');
-    if (a && a.blob) {
-      const img = document.createElement('img');
-      img.src = URL.createObjectURL(a.blob); img.alt = 'Resultado ' + legenda;
-      img.onclick = () => verResultado(a.blob, legenda);
-      fig.appendChild(img);
-    } else {
-      fig.insertAdjacentHTML('beforeend', '<div class="resultado-falta">imagem não está mais no aparelho</div>');
-    }
-    const cap = document.createElement('figcaption'); cap.textContent = legenda;
-    fig.appendChild(cap);
-    g.appendChild(fig);
+  galerias.forEach(g => {
+    const daArea = itens.filter(({ x }) => areaDe(x) === g.dataset.galeria);
+    if (!daArea.length) { g.innerHTML = '<p class="muted">Nenhum resultado da ' + g.dataset.galeria + ' ainda.</p>'; return; }
+    g.innerHTML = '';
+    daArea.forEach(({ x, a }) => {
+      const fig = document.createElement('figure');
+      fig.className = 'resultado';
+      const hora = new Date(x.ts).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      const legenda = (x.dir === 'saiu' ? 'Para ' : 'De ') + (x.quem || '?') + ' · ' + hora + (x.nota ? ' · ' + x.nota : '');
+      if (a && a.blob) {
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(a.blob); img.alt = 'Resultado ' + legenda;
+        img.onclick = () => verResultado(a.blob, 'Área ' + areaDe(x) + ' · ' + legenda);
+        fig.appendChild(img);
+      } else {
+        fig.insertAdjacentHTML('beforeend', '<div class="resultado-falta">imagem não está mais no aparelho</div>');
+      }
+      const cap = document.createElement('figcaption'); cap.textContent = legenda;
+      fig.appendChild(cap);
+      g.appendChild(fig);
+    });
   });
+}
+
+/* ————————————————— abas: Contato e Resultados ————————————————— */
+
+let aba = read('aba', 'contato') === 'resultados' ? 'resultados' : 'contato';
+function blocoAbas() {
+  return '<div class="abas" role="tablist">' +
+    [['contato', 'Contato'], ['resultados', 'Resultados']].map(([id, nome]) =>
+      '<button class="aba' + (aba === id ? ' on' : '') + '" role="tab" data-aba="' + id + '">' + nome + '</button>').join('') +
+    '</div>';
+}
+function mostrarAba() {
+  app.querySelectorAll('[data-aba]').forEach(b => b.classList.toggle('on', b.dataset.aba === aba));
+  app.querySelectorAll('[data-conteudo]').forEach(c => { c.hidden = c.dataset.conteudo !== aba; });
+}
+function ligarAbas() {
+  app.querySelectorAll('[data-aba]').forEach(b => b.onclick = () => { aba = b.dataset.aba; write('aba', aba); mostrarAba(); });
+  mostrarAba();
 }
 /** Abre a imagem grande, por cima da tela. */
 function verResultado(blob, legenda) {
@@ -1432,7 +1469,9 @@ function telaPainel() {
   // nome, pessoas novas e convites ficam em "Seu nome e pessoas", mais abaixo.
   const abrirAjustes = ajustesAbertos || !read('name', '') || !list.length;
   app.innerHTML = '<div class="app">' + cabeca('', NOME_PAINEL) +
-    blocoEscuta() +
+    blocoEscuta() + blocoAbas() +
+    '<div data-conteudo="resultados" hidden>' + blocoResultados() + '</div>' +
+    '<div data-conteudo="contato">' +
     '<div id="lista" class="chips">' + (list.length > 1
       ? '<button class="pick todos' + (todos ? ' on' : '') + '" data-pick="*">' +
           '<span>Todos<small>' + list.length + ' pessoas</small></span></button>' : '') +
@@ -1446,7 +1485,6 @@ function telaPainel() {
         field('recado', 'Escrever junto (opcional)', { max: 80, ph: 'Ex.: urgente, sala de controle' }) +
         blocoAnexar() + toneButtons()
       : (list.length ? '<p class="muted" style="margin-top:1rem">Toque numa pessoa para mandar.</p>' : '')) +
-    blocoResultados() +
     '<details class="historico ajustes" id="ajustes"' + (abrirAjustes ? ' open' : '') + '>' +
       '<summary>Seu nome e pessoas</summary>' +
       field('nome', 'Seu nome no alerta', { max: 24, ph: NOME_PAINEL }) +
@@ -1459,6 +1497,7 @@ function telaPainel() {
       '<button class="btn surface" id="novo">Adicionar e mandar convite</button>' +
     '</details>' +
     blocoAparelhos() +
+    '</div>' +
     blocoHistorico() + blocoApk() +
     '</div>';
   $('#ajustes').ontoggle = e => { ajustesAbertos = e.target.open; };
@@ -1496,7 +1535,9 @@ function telaPainel() {
     if (destinos.length) mandarAlarme(destinos, b.dataset.tone);
   });
   ligarPedidos(destinos);
-  ligarResultados(destinos);
+  // Resultado sai do painel para todas as pessoas.
+  ligarResultados(list.map(p => ({ chave: p.chave, nome: p.name })));
+  ligarAbas();
   atualizarPresenca();
   redesenharEnvio();
   ligarHistorico();
@@ -1551,10 +1592,12 @@ function telaSinal() {
     '<p class="muted quem">Você é <b>' + esc(read('name', '')) + '</b> · código <b class="codigo">' + esc(read('code', '')) + '</b></p>' +
     blocoEscuta() +
     '<p class="pres pres-painel" data-pres="painel" data-prefixo="' + NOME_PAINEL + ': "></p>' +
+    blocoAbas() +
+    '<div data-conteudo="resultados" hidden>' + blocoResultados() + '</div>' +
+    '<div data-conteudo="contato">' +
     blocoPedidos(true) + '<div id="envio" class="envio" aria-live="polite"></div>' +
     field('recado', 'Escrever junto (opcional)', { max: 80, ph: 'Ex.: urgente, sala de controle' }) +
-    blocoAnexar() + toneButtons() +
-    blocoResultados() +
+    blocoAnexar() + toneButtons() + '</div>' +
     blocoHistorico() + blocoApk() +
     '<button class="btn ghost" id="sair">Trocar de convite</button></div>';
   preencherVersao();
@@ -1565,6 +1608,7 @@ function telaSinal() {
   });
   ligarPedidos([{ chave: read('chave', ''), nome: 'o ' + NOME_PAINEL }]);
   ligarResultados([{ chave: read('chave', ''), nome: NOME_PAINEL }]);
+  ligarAbas();
   atualizarPresenca();
   redesenharEnvio();
   ligarHistorico();
