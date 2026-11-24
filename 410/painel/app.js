@@ -17,7 +17,7 @@
    ———————————————————————————————————————————————————————————— */
 'use strict';
 
-const VERSAO = '1.2.0';   // precisa casar com a VERSAO do sw.js
+const VERSAO = '1.3.0';   // precisa casar com a VERSAO do sw.js
 
 const ROLE = document.body.dataset.role;          // 'painel' | 'sinal'
 const NOME_PAINEL = 'Zap410';                    // o que a pessoa lê; o papel interno continua "painel"
@@ -1197,6 +1197,19 @@ function blocoArea(a) {
       graficoL(it, s, t.rumo) + (t.txt ? '<span class="rumo-l ' + t.rumo + '">' + esc(t.txt) + '</span>' : '') +
       (s.length ? '<span class="eq-l">leitura das ' + esc(s[s.length - 1].hora) + '</span>' : '') + '</div>';
   }).join('') + '</div>';
+  // Todas as coletas do turno: uma linha por horário (a mais nova em cima), uma coluna por tanque.
+  if (momentos.length) {
+    const curto = it => it.eq.split(' ')[0];
+    h += '<h3 class="lab-l">Todas as leituras · ' + esc(a.area) + '</h3>' +
+      '<div class="tab-l horas-l"><table><thead><tr><th>Hora</th>' +
+      itens.map(it => '<th>' + esc(curto(it)) + '<br><small>' + esc(it.unit) + '</small></th>').join('') + '</tr></thead><tbody>' +
+      momentos.slice().reverse().map(m => '<tr><td>' + esc(horaDe(m.quando) || m.quando) + '</td>' +
+        itens.map(it => {
+          const v = m.valores && m.valores[it.tag];
+          return '<td' + (foraDaFaixa(it, numL(v)) ? ' class="fora-l"' : '') + '>' + esc(fmtL(v)) + '</td>';
+        }).join('') + '</tr>').join('') +
+      '</tbody></table></div>';
+  } else h += '<p class="muted">Nenhuma coleta registrada ainda neste turno.</p>';
   const lab = a.lab || [];
   h += '<h3 class="lab-l">Laboratório · ' + esc(a.area) + '</h3>' + (lab.length
     ? '<div class="tab-l"><table><thead><tr><th>Ponto</th><th>Parâmetro</th><th>Horário</th><th>Valor</th><th>Unid.</th></tr></thead><tbody>' +

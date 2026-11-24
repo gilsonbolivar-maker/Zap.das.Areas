@@ -165,3 +165,7 @@ textarea::placeholder { color: rgba(243, 237, 228, .7); }
 .tab-l td:nth-child(2) { white-space: normal; min-width: 8.5rem; color: var(--muted); }
 .card-l.fora { border-top-color: var(--alert); }
 .l232 .row { display: flex; align-items: center; gap: .7rem; margin-top: 1rem; }
+/* Todas as leituras: hora na 1ª coluna, um tanque por coluna. */
+.horas-l td:nth-child(2), .horas-l th:nth-child(2) { white-space: nowrap; min-width: 0; color: var(--fg); text-align: center; }
+.horas-l th small { font-weight: 400; }
+.horas-l td.fora-l { color: #ff5a4e; font-weight: 700; }
